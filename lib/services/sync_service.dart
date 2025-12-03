@@ -16,9 +16,9 @@ class SyncService {
     required HiveService hiveService,
     required FirebaseService firebaseService,
     required ConnectivityService connectivityService,
-  })  : _hiveService = hiveService,
-        _firebaseService = firebaseService,
-        _connectivityService = connectivityService;
+  }) : _hiveService = hiveService,
+       _firebaseService = firebaseService,
+       _connectivityService = connectivityService;
 
   /// Check if currently syncing
   bool get isSyncing => _isSyncing;
@@ -85,10 +85,11 @@ class SyncService {
       final firebaseTasks = await _firebaseService.getAllTasks();
       final localTasks = _hiveService.getAllTasks();
 
+      // Create a map of Firebase tasks by ID for quick lookup
+      final firebaseTasksMap = {for (var task in firebaseTasks) task.id: task};
+
       // Create a map of local tasks by ID
-      final localTasksMap = {
-        for (var task in localTasks) task.id: task
-      };
+      final localTasksMap = {for (var task in localTasks) task.id: task};
 
       // Merge Firebase tasks with local tasks
       for (final firebaseTask in firebaseTasks) {
@@ -109,6 +110,19 @@ class SyncService {
           } else {
             // No local changes, use Firebase version
             await _hiveService.saveTask(firebaseTask);
+          }
+        }
+      }
+
+      // Handle deletions: remove local tasks that don't exist in Firebase
+      // But only if they don't have pending sync (which means they're new local tasks)
+      for (final localTask in localTasks) {
+        if (!firebaseTasksMap.containsKey(localTask.id)) {
+          // Task exists locally but not in Firebase
+          // Only delete if it's already synced (not a new local task)
+          if (!localTask.isPendingSync) {
+            // Task was deleted on another device, remove it locally
+            await _hiveService.deleteTask(localTask.id);
           }
         }
       }
@@ -148,4 +162,3 @@ class SyncService {
     }
   }
 }
-

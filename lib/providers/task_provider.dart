@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/task.dart';
 import '../services/hive_service.dart';
@@ -46,8 +47,8 @@ class TaskProvider with ChangeNotifier {
     // Listen to Firebase real-time updates
     if (_firebaseService.isAuthenticated) {
       _firebaseService.streamTasks().listen((firebaseTasks) {
-        // Merge with local tasks
-        _mergeTasks(firebaseTasks);
+        // Merge with local tasks (async operation, intentionally unawaited)
+        unawaited(_mergeTasks(firebaseTasks));
       });
     }
 
@@ -198,16 +199,35 @@ class TaskProvider with ChangeNotifier {
   }
 
   /// Merge Firebase tasks with local tasks
-  void _mergeTasks(List<Task> firebaseTasks) {
+  Future<void> _mergeTasks(List<Task> firebaseTasks) async {
     final localTasksMap = {
       for (var task in _tasks) task.id: task
     };
 
+    // Create a map of Firebase tasks by ID for quick lookup
+    final firebaseTasksMap = {
+      for (var task in firebaseTasks) task.id: task
+    };
+
+    // Process Firebase tasks (add/update)
     for (final firebaseTask in firebaseTasks) {
       final localTask = localTasksMap[firebaseTask.id];
       if (localTask == null || !localTask.isPendingSync) {
         // No local changes, use Firebase version
-        _hiveService.saveTask(firebaseTask);
+        await _hiveService.saveTask(firebaseTask);
+      }
+    }
+
+    // Handle deletions: remove local tasks that don't exist in Firebase
+    // But only if they don't have pending sync (which means they're new local tasks)
+    for (final localTask in _tasks) {
+      if (!firebaseTasksMap.containsKey(localTask.id)) {
+        // Task exists locally but not in Firebase
+        // Only delete if it's already synced (not a new local task)
+        if (!localTask.isPendingSync) {
+          // Task was deleted on another device, remove it locally
+          await _hiveService.deleteTask(localTask.id);
+        }
       }
     }
 
