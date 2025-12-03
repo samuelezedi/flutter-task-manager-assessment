@@ -47,8 +47,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = 'Error adding task';
+        if (e is Exception) {
+          errorMessage = e.toString().replaceFirst('Exception: ', '');
+        } else {
+          errorMessage = 'An unexpected error occurred. Please try again.';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding task: $e')),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
         );
       }
     } finally {

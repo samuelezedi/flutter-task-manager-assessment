@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/firebase_service.dart';
 import '../utils/app_theme.dart';
+import '../utils/error_handler.dart';
 
 /// Login screen for email/password authentication
 class LoginScreen extends StatefulWidget {
@@ -45,14 +46,14 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     try {
-      bool success;
+      String? errorMessage;
       if (_isSignUp) {
-        success = await widget.firebaseService.createUserWithEmailAndPassword(
+        errorMessage = await widget.firebaseService.createUserWithEmailAndPassword(
           email,
           password,
         );
       } else {
-        success = await widget.firebaseService.signInWithEmailAndPassword(
+        errorMessage = await widget.firebaseService.signInWithEmailAndPassword(
           email,
           password,
         );
@@ -60,19 +61,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      if (!success) {
+      if (errorMessage != null) {
         setState(() {
-          _errorMessage = _isSignUp
-              ? 'Failed to create account. Please try again.'
-              : 'Invalid email or password. Please try again.';
+          _errorMessage = errorMessage;
           _isLoading = false;
         });
+      } else {
+        // Success - auth state listener in main.dart will handle navigation
+        if (mounted) {
+          ErrorHandler.showSuccessSnackBar(
+            context,
+            _isSignUp ? 'Account created successfully!' : 'Signed in successfully!',
+          );
+        }
       }
-      // If successful, the auth state listener in main.dart will handle navigation
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'An error occurred. Please try again.';
+        _errorMessage = ErrorHandler.getGenericErrorMessage(e);
         _isLoading = false;
       });
     }

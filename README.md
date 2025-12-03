@@ -231,9 +231,68 @@ lib/
 
 ### Automated Tests
 
-Run tests:
+The app includes comprehensive automated tests covering models, services, providers, and widgets.
+
+#### Running Tests
+
+**Run all tests:**
 ```bash
 flutter test
+```
+
+**Run tests with coverage:**
+```bash
+flutter test --coverage
+```
+
+**Run specific test file:**
+```bash
+# Model tests
+flutter test test/models/task_test.dart
+
+# Service tests
+flutter test test/services/hive_service_test.dart
+flutter test test/services/sync_service_test.dart
+
+# Provider tests
+flutter test test/providers/task_provider_test.dart
+
+# Widget tests
+flutter test test/widgets/task_list_item_test.dart
+flutter test test/widgets/sync_indicator_test.dart
+flutter test test/widgets/add_task_screen_test.dart
+```
+
+**Run all widget tests:**
+```bash
+flutter test test/widgets/
+```
+
+**Run all service tests:**
+```bash
+flutter test test/services/
+```
+
+#### Test Coverage
+
+The test suite includes:
+- **Model Tests**: Task model creation, conversion, and validation
+- **Service Tests**: HiveService CRUD operations, SyncService conflict resolution
+- **Provider Tests**: TaskProvider state management and business logic
+- **Widget Tests**: UI component rendering and user interactions
+
+For detailed test documentation, see [TESTING.md](TESTING.md).
+
+#### Viewing Coverage Report
+
+After running tests with coverage, you can view the coverage report:
+```bash
+# Generate coverage report
+flutter test --coverage
+
+# View coverage (requires lcov)
+genhtml coverage/lcov.info -o coverage/html
+open coverage/html/index.html
 ```
 
 ## Troubleshooting
@@ -261,6 +320,7 @@ flutter test
 - ✅ Real-time sync indicators
 - ✅ Conflict resolution UI feedback
 - ✅ Comprehensive error handling
+- ✅ Automated tests (unit tests & widget tests)
 
 ## License
 

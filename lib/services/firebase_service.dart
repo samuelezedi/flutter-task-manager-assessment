@@ -26,13 +26,17 @@ class FirebaseService {
   bool get isAuthenticated => _auth.currentUser != null;
 
   /// Sign in with email and password
-  /// Returns true if successful, false otherwise
-  Future<bool> signInWithEmailAndPassword(String email, String password) async {
+  /// Returns null if successful, error message string if failed
+  /// Provides user-friendly error messages
+  Future<String?> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     try {
       // Verify Firebase is initialized
       if (!isFirebaseInitialized) {
         debugPrint('Firebase is not initialized. Cannot sign in.');
-        return false;
+        return 'Firebase is not initialized. Please check your configuration.';
       }
 
       debugPrint('Attempting email/password sign-in...');
@@ -52,30 +56,32 @@ class FirebaseService {
 
       if (userCredential.user != null) {
         debugPrint('Successfully signed in: ${userCredential.user!.email}');
-        return true;
+        return null; // Success
       }
-      return false;
+      return 'Sign in failed. Please try again.';
     } on TimeoutException catch (e) {
       debugPrint('Firebase auth timeout: ${e.message}');
       debugPrint(
         'This may indicate network issues or Firebase service unavailability.',
       );
-      return false;
+      return 'Connection timeout. Please check your internet connection and try again.';
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase auth error [${e.code}]: ${e.message}');
-      return false;
+      // Return user-friendly error message
+      return _getAuthErrorMessage(e);
     } catch (e, stackTrace) {
       debugPrint('Unexpected error signing in: $e');
       if (kDebugMode) {
         debugPrint('Stack trace: $stackTrace');
       }
-      return false;
+      return 'An unexpected error occurred. Please try again.';
     }
   }
 
   /// Create a new user account with email and password
-  /// Returns true if successful, false otherwise
-  Future<bool> createUserWithEmailAndPassword(
+  /// Returns null if successful, error message string if failed
+  /// Provides user-friendly error messages
+  Future<String?> createUserWithEmailAndPassword(
     String email,
     String password,
   ) async {
@@ -83,7 +89,7 @@ class FirebaseService {
       // Verify Firebase is initialized
       if (!isFirebaseInitialized) {
         debugPrint('Firebase is not initialized. Cannot create account.');
-        return false;
+        return 'Firebase is not initialized. Please check your configuration.';
       }
 
       debugPrint('Attempting to create account...');
@@ -108,24 +114,25 @@ class FirebaseService {
         debugPrint(
           'Successfully created account: ${userCredential.user!.email}',
         );
-        return true;
+        return null; // Success
       }
-      return false;
+      return 'Account creation failed. Please try again.';
     } on TimeoutException catch (e) {
       debugPrint('Firebase auth timeout: ${e.message}');
       debugPrint(
         'This may indicate network issues or Firebase service unavailability.',
       );
-      return false;
+      return 'Connection timeout. Please check your internet connection and try again.';
     } on FirebaseAuthException catch (e) {
       debugPrint('Firebase auth error [${e.code}]: ${e.message}');
-      return false;
+      // Return user-friendly error message
+      return _getAuthErrorMessage(e);
     } catch (e, stackTrace) {
       debugPrint('Unexpected error creating account: $e');
       if (kDebugMode) {
         debugPrint('Stack trace: $stackTrace');
       }
-      return false;
+      return 'An unexpected error occurred. Please try again.';
     }
   }
 
@@ -134,7 +141,40 @@ class FirebaseService {
 
   /// Sign out
   Future<void> signOut() async {
-    await _auth.signOut();
+    try {
+      await _auth.signOut();
+    } catch (e) {
+      debugPrint('Error signing out: $e');
+      rethrow;
+    }
+  }
+
+  /// Get user-friendly error message from FirebaseAuthException
+  String _getAuthErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+        return 'No account found with this email. Please check your email or sign up.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'email-already-in-use':
+        return 'An account already exists with this email. Please sign in instead.';
+      case 'invalid-email':
+        return 'Invalid email address. Please enter a valid email.';
+      case 'weak-password':
+        return 'Password is too weak. Please use at least 6 characters.';
+      case 'user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'too-many-requests':
+        return 'Too many failed attempts. Please try again later.';
+      case 'operation-not-allowed':
+        return 'This sign-in method is not enabled. Please contact support.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection and try again.';
+      case 'invalid-credential':
+        return 'Invalid email or password. Please try again.';
+      default:
+        return 'Authentication failed: ${e.message ?? "Unknown error"}. Please try again.';
+    }
   }
 
   /// Get tasks collection reference for current user
@@ -193,6 +233,7 @@ class FirebaseService {
   }
 
   /// Create or update a task in Firestore
+  /// Throws exception with user-friendly message on error
   Future<void> saveTask(Task task) async {
     try {
       await _retryFirestoreOperation(() async {
@@ -201,14 +242,16 @@ class FirebaseService {
       });
     } on FirebaseException catch (e) {
       debugPrint('Error saving task to Firebase [${e.code}]: ${e.message}');
-      rethrow;
+      throw Exception(_getFirestoreErrorMessage(e));
     } catch (e) {
       debugPrint('Error saving task to Firebase: $e');
-      rethrow;
+      if (e is Exception) rethrow;
+      throw Exception('Failed to save task. Please try again.');
     }
   }
 
   /// Delete a task from Firestore
+  /// Throws exception with user-friendly message on error
   Future<void> deleteTask(String taskId) async {
     try {
       await _retryFirestoreOperation(() async {
@@ -217,10 +260,31 @@ class FirebaseService {
       });
     } on FirebaseException catch (e) {
       debugPrint('Error deleting task from Firebase [${e.code}]: ${e.message}');
-      rethrow;
+      throw Exception(_getFirestoreErrorMessage(e));
     } catch (e) {
       debugPrint('Error deleting task from Firebase: $e');
-      rethrow;
+      if (e is Exception) rethrow;
+      throw Exception('Failed to delete task. Please try again.');
+    }
+  }
+
+  /// Get user-friendly error message from FirebaseException
+  String _getFirestoreErrorMessage(FirebaseException e) {
+    switch (e.code) {
+      case 'permission-denied':
+        return 'Permission denied. Please check your account permissions.';
+      case 'unavailable':
+        return 'Service temporarily unavailable. Your changes are saved locally and will sync when connection is restored.';
+      case 'deadline-exceeded':
+        return 'Request timed out. Please check your connection and try again.';
+      case 'resource-exhausted':
+        return 'Service is busy. Please try again in a moment.';
+      case 'unauthenticated':
+        return 'Please sign in to sync your tasks.';
+      case 'not-found':
+        return 'Task not found. It may have been deleted.';
+      default:
+        return 'Sync failed: ${e.message ?? "Unknown error"}. Your changes are saved locally.';
     }
   }
 

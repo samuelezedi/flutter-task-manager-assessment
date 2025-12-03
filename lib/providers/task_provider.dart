@@ -91,6 +91,8 @@ class TaskProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error loading tasks: $e');
+      // Error is logged but app continues with local data
+      // In a production app, you might want to show an error to the user
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -119,6 +121,8 @@ class TaskProvider with ChangeNotifier {
         await loadTasks(); // Reload to get updated sync status
       } catch (e) {
         debugPrint('Error syncing new task: $e');
+        // Task is already saved locally, will sync later
+        // User can continue working offline
       }
     }
   }
@@ -142,6 +146,8 @@ class TaskProvider with ChangeNotifier {
         await loadTasks();
       } catch (e) {
         debugPrint('Error syncing updated task: $e');
+        // Task is already updated locally, will sync later
+        // User can continue working offline
       }
     }
   }
@@ -183,6 +189,8 @@ class TaskProvider with ChangeNotifier {
       _tasks = _hiveService.getAllTasks();
     } catch (e) {
       debugPrint('Error performing sync: $e');
+      // Sync failed but local data is intact
+      // User can try again later or continue working offline
     } finally {
       _isSyncing = false;
       notifyListeners();

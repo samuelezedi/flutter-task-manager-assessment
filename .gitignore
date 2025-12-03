@@ -57,3 +57,6 @@ GoogleService-Info.plist
 # Hive
 *.hive
 *.lock
+
+ERROR_HANDLING.md
+TESTING.md
