@@ -1,5 +1,6 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive/hive.dart';
 import 'package:task_manager_app/models/task.dart';
 import 'package:task_manager_app/services/hive_service.dart';
 
@@ -8,15 +9,26 @@ void main() {
     late HiveService hiveService;
 
     setUpAll(() async {
-      // Initialize Hive for testing
-      await Hive.initFlutter();
+      // Initialize Flutter bindings for path_provider support
+      TestWidgetsFlutterBinding.ensureInitialized();
+      // Use system temp directory for testing
+      final tempDir = Directory.systemTemp;
+      final testPath = '${tempDir.path}/hive_test_${DateTime.now().millisecondsSinceEpoch}';
+      // Initialize Hive with test path
+      Hive.init(testPath);
       if (!Hive.isAdapterRegistered(0)) {
         Hive.registerAdapter(TaskAdapter());
       }
     });
 
     setUp(() async {
+      // Ensure the box is open before creating HiveService
+      if (!Hive.isBoxOpen('tasks')) {
+        await Hive.openBox<Task>('tasks');
+      }
+      
       hiveService = HiveService();
+      // Since the box is already open, init() should just get the box
       await hiveService.init();
       // Clear all tasks before each test
       await hiveService.deleteAllTasks();

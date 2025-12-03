@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:task_manager_app/models/task.dart';
 import 'package:task_manager_app/services/hive_service.dart';
@@ -46,10 +47,20 @@ class MockFirebaseService extends FirebaseService {
   final Map<String, Task> _tasks = {};
   bool _isAuthenticated = true;
 
+  MockFirebaseService() {
+    // Don't call super constructor to avoid Firebase initialization
+  }
+
   void setAuthenticated(bool value) => _isAuthenticated = value;
 
   @override
+  bool get isFirebaseInitialized => true;
+
+  @override
   bool get isAuthenticated => _isAuthenticated;
+
+  @override
+  String? get currentUserId => _isAuthenticated ? 'test-user' : null;
 
   @override
   Future<Task?> getTask(String taskId) async {
@@ -71,20 +82,38 @@ class MockFirebaseService extends FirebaseService {
     _tasks.remove(taskId);
   }
 
+  @override
+  Stream<List<Task>> streamTasks() {
+    return Stream.value(_tasks.values.toList());
+  }
+
   void addTask(Task task) {
     _tasks[task.id] = task;
   }
 }
 
 class MockConnectivityService extends ConnectivityService {
+  final StreamController<bool> _controller = StreamController<bool>.broadcast();
   bool _isOnline = true;
+
+  MockConnectivityService() {
+    _controller.add(_isOnline); // Initialize stream
+  }
 
   void setOnline(bool value) {
     _isOnline = value;
+    _controller.add(_isOnline);
   }
 
   @override
   bool get isOnline => _isOnline;
+
+  @override
+  Stream<bool> get connectionStream => _controller.stream;
+
+  void dispose() {
+    _controller.close();
+  }
 }
 
 void main() {

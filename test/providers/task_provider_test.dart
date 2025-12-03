@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:task_manager_app/models/task.dart';
 import 'package:task_manager_app/providers/task_provider.dart';
@@ -31,7 +32,14 @@ class MockFirebaseService extends FirebaseService {
   bool _isAuthenticated = true;
   String? _userId = 'test-user';
 
+  MockFirebaseService() {
+    // Don't call super constructor to avoid Firebase initialization
+  }
+
   void setAuthenticated(bool value) => _isAuthenticated = value;
+
+  @override
+  bool get isFirebaseInitialized => true;
 
   @override
   bool get isAuthenticated => _isAuthenticated;
@@ -44,6 +52,15 @@ class MockFirebaseService extends FirebaseService {
 
   @override
   Stream<List<Task>> streamTasks() => Stream.value([]);
+
+  @override
+  Future<Task?> getTask(String taskId) async => null;
+
+  @override
+  Future<void> saveTask(Task task) async {}
+
+  @override
+  Future<void> deleteTask(String taskId) async {}
 }
 
 class MockSyncService extends SyncService {
@@ -72,15 +89,27 @@ class MockSyncService extends SyncService {
 }
 
 class MockConnectivityService extends ConnectivityService {
+  final StreamController<bool> _controller = StreamController<bool>.broadcast();
   bool _isOnline = true;
 
-  void setOnline(bool value) => _isOnline = value;
+  MockConnectivityService() {
+    _controller.add(_isOnline); // Initialize stream
+  }
+
+  void setOnline(bool value) {
+    _isOnline = value;
+    _controller.add(_isOnline);
+  }
 
   @override
   bool get isOnline => _isOnline;
 
   @override
-  Stream<bool> get connectionStream => Stream.value(_isOnline);
+  Stream<bool> get connectionStream => _controller.stream;
+
+  void dispose() {
+    _controller.close();
+  }
 }
 
 void main() {
@@ -109,7 +138,9 @@ void main() {
       );
     });
 
-    test('should initialize with empty tasks', () {
+    test('should initialize with empty tasks', () async {
+      // Wait for initialization to complete
+      await Future.delayed(const Duration(milliseconds: 100));
       expect(taskProvider.tasks, isEmpty);
       expect(taskProvider.isLoading, false);
       expect(taskProvider.isSyncing, false);

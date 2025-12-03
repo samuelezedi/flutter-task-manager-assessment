@@ -8,7 +8,36 @@ class HiveService {
 
   /// Initialize Hive and open boxes
   Future<void> init() async {
-    await Hive.initFlutter();
+    // Only initialize if not already initialized (for testing)
+    try {
+      if (Hive.isBoxOpen(_tasksBoxName)) {
+        _tasksBox = Hive.box<Task>(_tasksBoxName);
+        return;
+      }
+    } catch (e) {
+      // Box not open, continue with initialization
+    }
+    
+    // Initialize Hive if not already done (for testing scenarios)
+    // Try to initialize Flutter Hive, but catch errors for test environments
+    try {
+      await Hive.initFlutter();
+    } catch (e) {
+      // Hive might already be initialized (e.g., in tests with Hive.init())
+      // or path_provider might not be available (e.g., in unit tests)
+      // Check if we can proceed without initFlutter by trying to open a box
+      try {
+        // If Hive was initialized with Hive.init(), we can proceed
+        if (!Hive.isAdapterRegistered(0)) {
+          Hive.registerAdapter(TaskAdapter());
+        }
+        _tasksBox = await Hive.openBox<Task>(_tasksBoxName);
+        return;
+      } catch (e2) {
+        // If we can't open a box either, rethrow the original error
+        rethrow;
+      }
+    }
     
     // Register adapters
     if (!Hive.isAdapterRegistered(0)) {

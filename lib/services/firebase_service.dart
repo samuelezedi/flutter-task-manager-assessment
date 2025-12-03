@@ -7,8 +7,24 @@ import '../models/task.dart';
 
 /// Service for managing Firebase Firestore operations
 class FirebaseService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseFirestore? _firestore;
+  FirebaseAuth? _auth;
+
+  FirebaseFirestore get _firestoreInstance {
+    if (!isFirebaseInitialized) {
+      throw Exception('Firebase is not initialized');
+    }
+    _firestore ??= FirebaseFirestore.instance;
+    return _firestore!;
+  }
+
+  FirebaseAuth get _authInstance {
+    if (!isFirebaseInitialized) {
+      throw Exception('Firebase is not initialized');
+    }
+    _auth ??= FirebaseAuth.instance;
+    return _auth!;
+  }
 
   /// Check if Firebase is initialized
   bool get isFirebaseInitialized {
@@ -20,10 +36,24 @@ class FirebaseService {
   }
 
   /// Get current user ID
-  String? get currentUserId => _auth.currentUser?.uid;
+  String? get currentUserId {
+    if (!isFirebaseInitialized) return null;
+    try {
+      return _authInstance.currentUser?.uid;
+    } catch (e) {
+      return null;
+    }
+  }
 
   /// Check if user is authenticated
-  bool get isAuthenticated => _auth.currentUser != null;
+  bool get isAuthenticated {
+    if (!isFirebaseInitialized) return false;
+    try {
+      return _authInstance.currentUser != null;
+    } catch (e) {
+      return false;
+    }
+  }
 
   /// Sign in with email and password
   /// Returns null if successful, error message string if failed
@@ -42,7 +72,7 @@ class FirebaseService {
       debugPrint('Attempting email/password sign-in...');
 
       // Attempt to sign in with email and password
-      final userCredential = await _auth
+      final userCredential = await _authInstance
           .signInWithEmailAndPassword(email: email.trim(), password: password)
           .timeout(
             const Duration(seconds: 10),
@@ -95,7 +125,7 @@ class FirebaseService {
       debugPrint('Attempting to create account...');
 
       // Attempt to create user with email and password
-      final userCredential = await _auth
+      final userCredential = await _authInstance
           .createUserWithEmailAndPassword(
             email: email.trim(),
             password: password,
@@ -137,12 +167,12 @@ class FirebaseService {
   }
 
   /// Get current user email
-  String? get currentUserEmail => _auth.currentUser?.email;
+  String? get currentUserEmail => _authInstance.currentUser?.email;
 
   /// Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await _authInstance.signOut();
     } catch (e) {
       debugPrint('Error signing out: $e');
       rethrow;
@@ -183,7 +213,10 @@ class FirebaseService {
     if (userId == null) {
       throw Exception('User not authenticated');
     }
-    return _firestore.collection('users').doc(userId).collection('tasks');
+    return _firestoreInstance
+        .collection('users')
+        .doc(userId)
+        .collection('tasks');
   }
 
   /// Retry a Firestore operation with exponential backoff
